@@ -1,0 +1,179 @@
+:toc:
+:toclevels: 5
+:sectnums:
+:sectnumlevels: 5
+:icons: font
+:imagesdir: images
+:source-highlighter: highlight.js
+
+= EN.525.615 - Lab 5 Assignment
+
+WARNING:  This is the first revision of this lab. There may be _some_ bugs. Ask questions as needed in the `Lab 5 Discussion` area.
+
+== Accept the GitHub Classroom Assignment link
+
+The GitHub Classroom Assignment for this Lab can be found here: https://classroom.github.com/a/XxtOIIfT
+
+== Overview
+
+Similarly to how the previous alarm clock task spanned two separate labs, this task will span the final three labs due to its complexity. You will make a simple video game console using both the primary development board as the console itself, and the Wireless Dongle as the "brains" for a wireless input device (the "controller"). You will implement any single game of your choosing, but we will make a few suggestions and provide some ideas for inspiration in the later labs. This will exercise everything you have learned thus far such displaying graphics on the LCD, generating sounds with the DAC/Amp combo, and interfacing with buttons. New concepts include things like wireless communication, analog to digital (ADC) conversion, and basic game loops.
+
+NOTE: Start thinking about the "big picture" of your design now during this lab. You won't be implementing everything at once so try to plan out what peripherals you will be using and which pins you may need for them in the later labs. You don't want to code yourself into a corner and end up with extra work.
+
+=== Requirements
+
+Your video game console at the end of lab 7 shall be able to:
+
+** Be controllable wirelessly by the player
+** Display graphics with a minimum level of complexity
+** Play several types of audio
+*** Sound effects including waveform and noise generation
+*** Simple Melodies
+
+The general sequence of the labs and their requirements are as follows:
+
+1. Lab 5
+* A "warmup" building a simple DAC and looping it back into the ADC
+* Interface the Funduino Joystick Shield to the WB55 Development board
+** Interface all 6 buttons and both joystick axes and be able to read out the values with minimal latency
+* Implement a simple graphical demo that can:
+** Move a figure around the screen using the joystick
+** Wrap the figure around when at the edge of the screen
+** Change colors of the background and foreground
+** Change the shape of the figure using button presses
+*** At least three types: Circle, Square, Triangle
+*** Can be any size, but must be recognizable (a single pixel doesn't count)
+
+2. Lab 6
+* Interface the Funduino Joystick Shield to the WB55 Wireless dongle
+* Program the wireless dongle to forward all joystick inputs and button presses to the dev board
+** There must but little to no "lag" between pressing the button and the dev board reacting to the pressed button or moved axis
+** The control inputs must be logged to the UART
+* The wireless controller has to control the "demo" from lab 6
+* Implement a simple audio system to play a tune
+** Be able to play single tones with with a selectable waveform: sine, square, and triangle waves
+** Be able to play different tones (meaning different frequencies of sound)
+
+3. Lab 7
+* Integrate the previous two labs together into a single system
+* Write the game loop for your favorite game
+** Tetris, Space Invaders, Asteroids, Snake
+
+=== Additional Information
+
+This lab involves the use of many previously used components so that information will not be repeated in this lab. Please refer back to the previous labs for reference.
+
+* Lab 2 - State Machines, FreeRTOS
+* Lab 3 - Simple GPIO, RTC, Keypad Matrix, Timers
+* Lab 4 - LCD, Audio via I2S DAC, Rotary Encoder
+
+=== Extra Credit
+
+TIP: Optionally, you can add whatever *additional* features you like to this. If you implement features above and beyond this baseline we will add extra credit equivalent to the effort/creativity put in to them. You can not get over 100, but what the extra credit will do is allow you lose points in some other areas and still make it possible to get a perfect score. The maximum extra points available is *10 points*, so one full letter grade. To get this max amount the features added must be exceptional.
+
+== Hardware Setup
+
+The hardware required for this mostly consists of components you have used before. The only brand new part is the Joystick and Funduino Joystick Shield.
+
+=== Parts list
+
+* Funduino Joystick Shield
+* LCD
+* 10k Resistor
+* 100 nF Capacitor
+
+=== Hardware Assembly and Setup
+
+==== Funduino Joystick Shield
+
+This device conveniently contains all the buttons and joystick needed for controller the video game system. This includes four regular buttons, two push buttons (like "start" and "select" on a video game controller), a joystick with two analog axis, and a joystick push button. The board has pull-up resistors already installed so you only need to provide both power and ground to the shield in addition to hooking up the GPIO pins.
+
+Somewhat not conveniently, the "shield" is made to be used with an arduino, meaning it won't fit nicely into/onto our WB55 wireless dongle. While the typical arduino headers WILL plug into the WB55 development board for this lab, this does not help us later since the later labs will have the shield hooked up to the dongle.
+
+Luckily, it does have a standard 100-mil header which you can jumper to. This is colored yellow on the board and the pinout is in the following figure.
+
+image::lab5-fun.png[width=60%,align=center]
+
+Power should be connected to 3.3 Volts. Connect the analog signals to analog capable pins, and the buttons to regular GPIO. Don't forget the ground.
+
+=== PWM DAC
+
+You will implement a low-tech DAC in order to test out the ADC. All you need to make a simple DAC is a PWM capable pin and a low pass filter. In your kit you have a 100nF capacitor and a 10k Ohm resistor that you will use to build this device. The following diagram shows how to hook it up:
+
+image::lab5-dac.png[width=60%,align=center]
+
+You will loop the analog output from this simple DAC back to an analog capable input on the dev board. Make sure to do this in a way that is conducive to hooking up the ADALM2000 oscilloscope to the signal.
+
+== Lab Setup and Requirements
+
+=== Warmup
+
+This part of the lab is to help get used to using the ADC on the development board. We will be using a simple DAC to drive known values into our ADC for testing.
+
+NOTE: The warmup should be a separate project from the remainder of the lab.
+
+1. Sweep through the PWM range to see what output voltage values you can attain with this simple DAC
+2. Figure out the "resolution" of this DAC. In other words, for each PWM value step, how much does the output voltage change
+3. Figure the bandwidth of this DAC by seeing how how quickly you can change the output by varying the PWM percentage quickly
+* Discuss the limitations of this type of DAC
+* Could this DAC play audio?
+
+The reason for this part of the lab is to get used to using the ADC, and to give you an alternative to the I2S audio amplifier for later labs. This method is limited in its performance but can work in a pinch.
+
+For all these cases you will also use the ADALM2000 to verify the output of the DAC.
+
+NOTE: Make sure to include screen grabs of your DAC output to support your analysis
+
+==== ADC Theory
+
+An analog to digital converter takes an arbitrary voltage in and quantizes it to a digital value. The precision (in bits) of the ADC dictates the range of values that can come from ADC, and in the case of the STM32 ADC it has 12-bits of precision. This means values read from the ADC range from 0 to 2^12^-1 (or 4095). These digital values map to analog values linearly between the ADC ground reference and voltage reference (in this case 0v and 3.3 Volts). Meaning that each least significant bit corresponds to roughly 0.0008 Volts.
+
+The output voltage follows this simple equation: V~out~ = (V~ref~/4096)*D~n~
+
+This naturally means there will be some error in your signal since you only have 4096 "steps" of voltage values, and voltage is a continuous "real" value. This figure show how the precision of the ADC can limit how well you can reconstruct a signal:
+
+image::lab5-adc.png[width=40%,align=center]
+
+For more information read about ADC theory in reference 4.
+
+=== Funduino Joystick Shield Interfacing
+
+Interfacing to the joystick shield is relatively straightforward. The regular buttons (labeled A,B,C,D,E,F in the schematic) are simply digital push buttons. This means to interface to them, you read them like you would any digital input from the previous labs.
+
+The joystick operates by having two potentiometers, one for each of the forward-back and left-right axes. The potentiometer is a variable resistor that changes its resistance depending on position. In the case of the joystick, the potentiometer is wired in a way to vary the output voltage between 0 and 3.3 volts over the complete travel of the particular axis. When the joystick is not being used it outputs a value roughly halfway between ground and the voltage reference.
+
+For this lab you must interface to all buttons and joystick axis. Use the ADC code from the warmup to get you started. Not all of the buttons will be used for the graphics demo, but they still must be logged to the UART when pressed.
+
+=== Driving the LCD
+
+Next you will be creating a graphical demo as a precursor to the full featured game you will be making in the later labs. Your task is to create a "scene" on the LCD consisting of a background (with adjustable color using button presses) and a foreground consisting of a geometric shape. This foreground must also be able to have the color changed via a different button from the background.
+
+NOTE: The choice of colors is up to you, but there must be at least five and they must be distinct (i.e not five different shades of red).
+
+For drawing the figures, either use shape primitive drawing functions from an LCD library to draw lines, circles, and rectangles. Or learn how to write your own by researching how to efficiently draw these primitives yourself using simple pixel writes. See reference 5 for a great introduction on how to do this at a low level.
+
+Remember to draw at least three different types of figures (square, triangle and circle), and can be filled in or not. The drawn figure must also smoothly wrap around the edge of the LCD.
+
+NOTE: Using a lot of floating point math in a microcontroller will severely slow down your system. For best performance use integer math for as much as you can. See Bresenham’s Line and Circle Drawing Algorithms in reference 6.
+
+=== FreeRTOS usage
+
+FreeRTOS usage is *encouraged* but optional. This is a pretty good application for it (keeping time is definitely a real-time class of problem) but it will be harder to implement so try not to get trapped with a design at the last second that doesn't work and needs to be rewritten from scratch.
+
+<<<
+
+== References
+
+1. User manual for the Nucleo-WB55 containing useful information on how to interface to the board itself: https://www.st.com/resource/en/user_manual/dm00517423-bluetooth-low-energy-and-802154-nucleo-pack-based-on-stm32wb-series-microcontrollers-stmicroelectronics.pdf[UM2435]
+
+2. Reference manual for the WB55 containing in depth information about how to program the chip including it's peripherals https://www.st.com/content/ccc/resource/technical/document/reference_manual/group0/83/cf/94/7a/35/a9/43/58/DM00318631/files/DM00318631.pdf/jcr:content/translations/en.DM00318631.pdf[RM0434]
+
+3. How to turn your simple PWM into a DAC https://www.allaboutcircuits.com/technical-articles/turn-your-pwm-into-a-dac/[here]
+
+4. ADC Theory https://wiki.analog.com/university/courses/electronics/text/chapter-20[here]
+
+5. How to draw primitive shapes http://www.brackeen.com/vga/shapes.html[here]
+
+6. Bresenham's circle algorithm https://iq.opengenus.org/bresenhams-circle-drawing-algorithm/[here]
+
+7. Wikipedia has a very thorough article on ADC's as well https://en.wikipedia.org/wiki/Analog-to-digital_converter[here]
